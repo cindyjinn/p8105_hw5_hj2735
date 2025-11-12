@@ -53,6 +53,8 @@ prob_df |>
     title = "Birthday Problem Simulation"
   )
 
+p
+
 ggsave("plots/birthday_prob_plot.png", p, width = 6, height = 4)
 ```
 The probability of at least one shared birthday increases quickly with group size.
