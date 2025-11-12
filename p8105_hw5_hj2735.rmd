@@ -5,22 +5,62 @@ date: "2025-11-12"
 output: github_document
 ---
 
-```{r}
+### Problem 1
 
+```{r}
+library(tidyverse)
+set.seed(1)
 ```
 
 ```{r}
-
+birthday_dup = function(n) {
+  bdays = sample(1:365, size = n, replace = TRUE)
+  # true if dup exists
+  any(duplicated(bdays))
+}
 ```
 
 ```{r}
-
+# Simulation: repeat 10000 times for group sizes 2–50
+sim_results = 
+  expand_grid(
+    group_size = 2:50,
+    iter = 1:10000
+  ) |> 
+  mutate(
+    dup = map_lgl(group_size, birthday_dup)
+  )
 ```
 
 ```{r}
-
+# Compute empirical probability for each group size
+prob_df = 
+  sim_results |> 
+  group_by(group_size) |> 
+  summarize(prob = mean(dup))
 ```
 
+```{r}
+# Plot probability vs. group size
+p = 
+prob_df |> 
+  ggplot(aes(x = group_size, y = prob)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    x = "Group size (n)",
+    y = "Probability of ≥1 shared birthday",
+    title = "Birthday Problem Simulation"
+  )
+
+ggsave("plots/birthday_prob_plot.png", p, width = 6, height = 4)
+```
+The probability of at least one shared birthday increases quickly with group size.
+For example, at n = 10 the probability is `r prob_df$prob[prob_df$group_size == 10]`,
+and by n = 23 it reaches `r prob_df$prob[prob_df$group_size == 23]`, close to the well-known 0.5 threshold.
+By n = 50 the probability is `r prob_df$prob[prob_df$group_size == 50]`, meaning shared birthdays are almost certain.
+
+### Problem 2
 ```{r}
 
 ```
