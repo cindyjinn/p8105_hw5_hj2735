@@ -179,22 +179,71 @@ Thus, conditioning on significance inflates the estimate of μ̂, creating upwar
 ### Problem 3
 
 ```{r}
+homicide_df = 
+  read_csv("data/homicide-data.csv")
 
+homicide_df
+```
+The raw data contains `r nrow(homicide_df)` homicide records across 50 U.S. cities. Each row corresponds to a single victim and includes variables such as name, age, race, sex, city, state, latitude/longitude, and disposition. The key variable of interest is `disposition`, which indicates whether the homicide was solved or unsolved.
+
+```{r}
+homicide_city =
+  homicide_df |> 
+  mutate(
+    city_state = str_c(city, ", ", state),
+    unsolved = disposition %in% c("Closed without arrest", "Open/No arrest")
+  ) |> 
+  group_by(city_state) |> 
+  summarize(
+    total = n(),
+    unsolved = sum(unsolved)
+  )
 ```
 
 ```{r}
+baltimore =
+  homicide_city |> 
+  filter(city_state == "Baltimore, MD")
 
+# Run prop.test
+baltimore_test = prop.test(
+  x = baltimore$unsolved,
+  n = baltimore$total
+)
+
+# Tidy output
+baltimore_tidy =
+  broom::tidy(baltimore_test)
+
+baltimore_tidy |> 
+  select(estimate, conf.low, conf.high)
 ```
 
 ```{r}
-
+city_tests =
+  homicide_city |>
+  mutate(
+    test_output = map2(unsolved, total, ~ prop.test(.x, .y)),
+    tidy_output = map(test_output, broom::tidy)
+  ) |>
+  unnest(tidy_output) |>
+  select(city_state, estimate, conf.low, conf.high)
 ```
 
 ```{r}
+city_plot =
+  city_tests |> 
+  mutate(city_state = fct_reorder(city_state, estimate)) |> 
+  ggplot(aes(x = city_state, y = estimate)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high)) +
+  coord_flip() +
+  labs(
+    x = "City",
+    y = "Estimated proportion unsolved",
+    title = "Proportion of Unsolved Homicides by City"
+  )
 
-```
-
-```{r}
-
+city_plot
 ```
 
