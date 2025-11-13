@@ -9,6 +9,7 @@ output: github_document
 
 ```{r}
 library(tidyverse)
+library(broom)
 set.seed(1)
 ```
 
@@ -63,6 +64,128 @@ and by n = 23 it reaches `r prob_df$prob[prob_df$group_size == 23]`, close to th
 By n = 50 the probability is `r prob_df$prob[prob_df$group_size == 50]`, meaning shared birthdays are almost certain.
 
 ### Problem 2
+```{r}
+# Function: simulate data from N(mu, sigma) and run one-sample t-test of H0: mu = 0
+sim_ttest = function(mu, n = 30, sigma = 5) {
+  
+  # simulate n observations with true mean mu and sd sigma
+  x = rnorm(n, mean = mu, sd = sigma)
+  
+  # run one-sample t-test against 0 and tidy the output
+  t_out  = t.test(x, mu = 0)
+  t_tidy = broom::tidy(t_out)
+  
+  # return estimated mean and p-value as a tibble
+  tibble(
+    mu_hat  = t_tidy$estimate,
+    p_value = t_tidy$p.value
+  )
+}
+```
+
+```{r}
+sim_results = 
+  expand_grid(
+    mu_true = 0:6,        # true values of mu
+    iter    = 1:5000      # 5000 datasets for each mu
+  ) |> 
+  mutate(
+    # for each row, run sim_ttest using the corresponding mu_true
+    out = map(mu_true, ~ sim_ttest(mu = .x))
+  ) |> 
+  unnest(out) |> 
+  mutate(
+    # indicator for rejecting H0 at alpha = 0.05
+    reject = p_value < 0.05
+  )
+```
+
+```{r}
+# proportion of rejections (power) for each true mu
+power_df = 
+  sim_results |> 
+  group_by(mu_true) |> 
+  summarize(power = mean(reject))
+
+# power curve plot
+power_plot = 
+  power_df |> 
+  ggplot(aes(x = mu_true, y = power)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    x = "True mean \u03bc",
+    y = "Power (Pr(reject H0))",
+    title = "Power of one-sample t-test (n = 30, \u03c3 = 5)"
+  ) +
+  theme_minimal()
+
+power_plot
+
+ggsave("plots/power_curve.png", power_plot, width = 6, height = 4)
+```
+Power increases as the true mean μ gets farther from 0; small effects have low power, and large effects are detected (rejected) much more often.
+
+```{r}
+# average mu_hat overall and in rejected samples only
+mu_est_df = 
+  sim_results |> 
+  group_by(mu_true) |> 
+  summarize(
+    mean_hat_all     = mean(mu_hat),
+    mean_hat_reject  = mean(mu_hat[reject])
+  )
+
+# reshape for plotting both lines together
+mu_long = 
+  mu_est_df |> 
+  pivot_longer(
+    mean_hat_all:mean_hat_reject,
+    names_to = "type",
+    values_to = "mean_hat"
+  ) |> 
+  mutate(
+    type = recode(type,
+                  mean_hat_all    = "All samples",
+                  mean_hat_reject = "Rejected H0 only")
+  )
+
+mu_plot = 
+  mu_long |> 
+  ggplot(aes(x = mu_true, y = mean_hat, color = type)) +
+  geom_line() +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  labs(
+    x = "True mean \u03bc",
+    y = "Average estimate of \u03bc\u0302",
+    color = "",
+    title = "Average \u03bc\u0302 across all vs. rejected samples"
+  ) +
+  theme_minimal()
+
+mu_plot
+
+ggsave("plots/mu_estimates.png", mu_plot, width = 6, height = 4)
+```
+The average estimate of μ̂ across all samples is close to the true value of μ, e.g.
+when μ = 2, the overall mean μ̂ is `r mu_est_df$mean_hat_all[mu_est_df$mu_true == 2]`,
+showing that the estimator is approximately unbiased.
+
+However, when examining only samples for which the null was rejected, the average μ̂ is larger;
+for μ = 2, this conditional mean is `r mu_est_df$mean_hat_reject[mu_est_df$mu_true == 2]`.
+Thus, conditioning on significance inflates the estimate of μ̂, creating upward bias.
+
+### Problem 3
+
+```{r}
+
+```
+
+```{r}
+
+```
+
 ```{r}
 
 ```
